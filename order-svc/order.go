@@ -69,6 +69,52 @@ func getOrder(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(&Order{})
 }
 
+//asynchronus nats
+func createOrderAsyn(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var order Order
+	//var sc stan.Conn
+	_ = json.NewDecoder(r.Body).Decode(&order)
+	order.ID = strconv.Itoa(rand.Intn(10000000))
+	orders = append(orders, order)
+	json.NewEncoder(w).Encode(order)
+
+	messgBuff, err := json.Marshal(order)
+	if err != nil {
+		fmt.Println("Error marshalling object.")
+		fmt.Println(err)
+	}
+
+	var natsConn *nats.Conn
+	natsConn, err = nats.Connect(nats.DefaultURL)
+	if err != nil {
+		panic(err)
+	}
+	defer natsConn.Close()
+
+	conn, err := stan.Connect(clusterID, clientID, stan.NatsConn(natsConn))
+	if err != nil {
+		log.Print(err)
+	}
+
+	ackHandler := func(ackedNuid string, err error) {
+		if err != nil {
+			log.Printf("Error publishing message id %s: %v\n", ackedNuid, err.Error())
+		} else {
+			log.Printf("Received ACK for message id %s\n", ackedNuid)
+		}
+	}
+
+	asynid, err := conn.PublishAsync(channel, messgBuff, ackHandler)
+	if err != nil {
+		log.Println("Error publish message!", asynid, err)
+	}
+	log.Printf("Published [%s] : '%s'\n", channel, messgBuff)
+
+	defer conn.Close()
+}
+
+//synchronus nats
 func createOrder(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var order Order
@@ -98,6 +144,7 @@ func createOrder(w http.ResponseWriter, r *http.Request) {
 
 	defer conn.Close()
 
+	//by default func conn.Publish is synchronus
 	err = conn.Publish(channel, messgBuff)
 	if err != nil {
 		log.Println("Error publish message!")
@@ -148,6 +195,9 @@ func main() {
 	mRoute.HandleFunc("/api/order", getListOrder).Methods("GET")
 	mRoute.HandleFunc("/api/order/{id}", getOrder).Methods("GET")
 	mRoute.HandleFunc("/api/order", createOrder).Methods("POST")
+	//asychronus nats
+	mRoute.HandleFunc("/api/order/asyn", createOrderAsyn).Methods("POST")
+	//end asynchronus nats
 	mRoute.HandleFunc("/api/order/{id}", updateOrder).Methods("PUT")
 	mRoute.HandleFunc("/api/order/{id}", deleteOrder).Methods("DELETE")
 	//end endpoint order

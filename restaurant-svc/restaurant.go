@@ -118,12 +118,13 @@ func main() {
 	if err != nil {
 		log.Print(err)
 	}
-	conn.Subscribe(channel, func(m *stan.Msg) {
+
+	//initial message handler
+	msgHandle := func(m *stan.Msg) {
 		log.Print("Got new order! ", m.Subject)
-		// var cek = reflect.ValueOf(m.Data)
-		// log.Print("Tipe data ", cek.Type())
 		log.Print("Data order: ", string(m.Data))
-	})
+	}
+	conn.Subscribe(channel, msgHandle)
 	defer conn.Close()
 
 	//init router
