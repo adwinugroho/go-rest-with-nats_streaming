@@ -13,11 +13,12 @@ import (
 )
 
 const (
-	port      = ":8001"
+	port      = ":8004"
 	clusterID = "test-cluster"
-	clientID  = "restaurant-svc"
+	clientID  = "restaurant2-svc"
 	channel   = "order-notification"
-	durableID = "restaurant-service-durable"
+	//durableID = "restaurant-service-durable"
+	queueGroup = "order-group"
 )
 
 //models restaurant
@@ -124,7 +125,7 @@ func main() {
 		log.Print("Got new order! ", m.Subject)
 		log.Print("Data order: ", string(m.Data))
 	}
-	conn.Subscribe(channel, msgHandle, stan.DurableName("i-will-remember"))
+	conn.QueueSubscribe(channel, queueGroup, msgHandle, stan.DurableName("i-will-remember"))
 	defer conn.Close()
 
 	//init router
@@ -138,6 +139,6 @@ func main() {
 	mRoute.HandleFunc("/api/restaurant/{id}", deleteRestaurant).Methods("DELETE")
 	//end endpoint book
 
-	log.Println("Run server restaurant on port :8001")
+	log.Println("Run server restaurant 2 on port :8004")
 	log.Fatal(http.ListenAndServe(port, mRoute))
 }

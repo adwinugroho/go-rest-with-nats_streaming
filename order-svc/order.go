@@ -18,7 +18,6 @@ const (
 	//NATSURL   = "nats://nats-streaming:4222"
 	port      = ":8002"
 	clusterID = "test-cluster"
-	clientID  = "test-client"
 	channel   = "order-notification"
 	durableID = "restaurant-service-durable"
 )
@@ -69,7 +68,7 @@ func getOrder(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(&Order{})
 }
 
-//asynchronus nats
+//asynchronus
 func createOrderAsyn(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var order Order
@@ -90,9 +89,8 @@ func createOrderAsyn(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	defer natsConn.Close()
 
-	conn, err := stan.Connect(clusterID, clientID, stan.NatsConn(natsConn))
+	conn, err := stan.Connect(clusterID, "client-asynchronus", stan.NatsConn(natsConn))
 	if err != nil {
 		log.Print(err)
 	}
@@ -104,6 +102,7 @@ func createOrderAsyn(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Received ACK for message id %s\n", ackedNuid)
 		}
 	}
+	defer natsConn.Close()
 
 	asynid, err := conn.PublishAsync(channel, messgBuff, ackHandler)
 	if err != nil {
@@ -114,7 +113,7 @@ func createOrderAsyn(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 }
 
-//synchronus nats
+//synchronus
 func createOrder(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var order Order
@@ -137,7 +136,7 @@ func createOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	defer natsConn.Close()
 
-	conn, err := stan.Connect(clusterID, clientID, stan.NatsConn(natsConn))
+	conn, err := stan.Connect(clusterID, "client-order-2", stan.NatsConn(natsConn))
 	if err != nil {
 		log.Print(err)
 	}
